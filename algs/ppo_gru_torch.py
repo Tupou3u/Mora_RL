@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from algs.init_model_gru import GRUAgent
 
@@ -109,6 +108,7 @@ class PPO_GRU:
                 with torch.no_grad():
                     finger_approx_kl = ((finger_r - 1) - finger_log_r).mean()
                     sum_approx_kl = ((sum_r - 1) - sum_log_r).mean()
+                    approx_kl = (finger_approx_kl + sum_approx_kl) / 2
                     clipfracs += [((finger_r - 1.0).abs() > self.actor_clip).float().mean().item(),
                                   ((sum_r - 1.0).abs() > self.actor_clip).float().mean().item()]
 
@@ -153,6 +153,7 @@ class PPO_GRU:
                     self.writer.add_scalar("losses/loss", loss.detach().cpu().numpy(), self.train_steps)
                     self.writer.add_scalar("losses/finger_approx_kl", finger_approx_kl.item(), self.train_steps)
                     self.writer.add_scalar("losses/sum_approx_kl", sum_approx_kl.item(), self.train_steps)
+                    self.writer.add_scalar("losses/approx_kl", approx_kl.item(), self.train_steps)
                     
                 self.train_steps += 1
 

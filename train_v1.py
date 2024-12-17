@@ -6,6 +6,7 @@ from algs.ppo_gru_torch import PPO_GRU
 import torch
 import time
 import random
+from utils import *
 
 def copy_model(model: GRUAgent, device):
     state_dict = model.state_dict()
@@ -20,10 +21,17 @@ def load_model(path, device):
     model.load_state_dict(model_dict)
     return model
 
+def validation(game, agents, num_games):
+    agents_models = [copy_model(agent.model, rollout_device) for agent in agents]
+    for num, opp_model in enumerate(agents_models):
+        game.add_player(MoraOpponent(f'p{num+1}', model=opp_model, noise=0.0))
+    game.play_games(num_games)
+    return {p: v / num_games for p, v in get_score(game.get_history()).items()}
+
 rollout_device = 'cpu'
 train_device = 'cuda'
 
-save_path = 'history/train_1_2/'
+save_path = 'history/train_1_1/'
 
 agents = [
     PPO_GRU(
@@ -94,6 +102,8 @@ MIN_ENT = 0.001
 ALPHA = 0.0 
 ALPHA_DECAY = 0.95
 MIN_ALPHA = 0.0
+VAL_FREQ = 1
+VAL_GAMES = 100_000
 
 start = time.time()
 total_rounds = 0
@@ -168,6 +178,11 @@ for epoch in range(1, NUM_EPOCHS):
             curr_agent.writer.add_scalar("cycle/cycle_reward", cycle_rewards_dict[curr_agent], cycle_count)
 
         if not current_cycle:
+            if cycle_count % VAL_FREQ == 0:
+                print(f'Validation... time: {time.strftime("%H:%M")}')
+                val_rewards = validation(game, agents, VAL_GAMES)
+                print(val_rewards)
+
             ALPHA = max(MIN_ALPHA, ALPHA * ALPHA_DECAY)
             print(f'Alpha update: {ALPHA}') 
             print(f'Cycles count: {cycle_count}')
